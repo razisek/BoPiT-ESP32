@@ -1,3 +1,6 @@
+#ifndef __FIREBASE_CONTROLLER_H__
+#define __FIREBASE_CONTROLLER_H__
+
 #include <Arduino.h>
 #include <stdio.h>
 #include <ArduinoJson.h>
@@ -13,9 +16,9 @@
 class FirebaseController
 {
     FirebaseData fbdo;
+    ReadDallas dallas;
     ReadDHT dht;
     SoilMosture lembab;
-    ReadDallas dallas;
     time_t now;
     struct tm *timeinfo;
 
@@ -36,7 +39,7 @@ class FirebaseController
     }
 
 public:
-    FirebaseController()
+    FirebaseController(int dsbPin, int dhtPin, int dhtType, int soilMoisturePin) : dallas(dsbPin), dht(dhtPin, dhtType), lembab(soilMoisturePin)
     {
         configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
     }
@@ -102,8 +105,6 @@ public:
     bool isScheduleRun(bool running)
     {
         char buff[15];
-        bool enable;
-        int minute;
         String path = "/jadwal/" + String(getHour());
         path.toCharArray(buff, path.length() + 1);
         DynamicJsonDocument doc(2048);
@@ -115,8 +116,8 @@ public:
         else
         {
             deserializeJson(doc, fbdo.jsonString());
-            enable = doc["enable"];
-            minute = doc["minute"];
+            bool enable = doc["enable"];
+            int minute = doc["minute"];
             if (enable && minute == getMinute() && !running)
             {
                 return true;
@@ -186,3 +187,5 @@ public:
         }
     }
 };
+
+#endif

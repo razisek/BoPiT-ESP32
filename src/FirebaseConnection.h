@@ -1,12 +1,14 @@
 #ifndef _FIRE_BASE_CONNECTIONS_
 #define _FIRE_BASE_CONNECTIONS_
 
-#define JSON_SIZE 256
-
 #include <Arduino.h>
 #include <FirebaseESP32.h>
 
 #include "GetFile.h"
+
+#define JSON_SIZE 256
+
+#define WIFI_RECONNECT true
 
 FirebaseAuth auth;
 FirebaseConfig config;
@@ -42,7 +44,7 @@ public:
         config.database_url = host;
         config.signer.tokens.legacy_token = apiKey;
 
-        Firebase.reconnectWiFi(true);
+        Firebase.reconnectWiFi(WIFI_RECONNECT);
 
         Firebase.begin(&config, &auth);
     }

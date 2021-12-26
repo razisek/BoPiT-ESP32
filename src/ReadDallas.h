@@ -1,16 +1,17 @@
+#ifndef __READ_DALLAS_H__
+#define __READ_DALLAS_H__
+
 #include <Arduino.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
-const int oneWireBus = 25;
-OneWire oneWire(oneWireBus);
-DallasTemperature sensors(&oneWire);
-
 class ReadDallas
 {
+    OneWire oneWire;
+    DallasTemperature sensors;
 
 public:
-    ReadDallas()
+    ReadDallas(int oneWireBus) : oneWire(oneWireBus), sensors(&oneWire)
     {
         sensors.begin();
     }
@@ -22,3 +23,5 @@ public:
         return temperatureC;
     }
 };
+
+#endif

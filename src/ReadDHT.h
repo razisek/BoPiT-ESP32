@@ -1,15 +1,15 @@
+#ifndef __READ_DHT_H__
+#define __READ_DHT_H__
+
 #include <Arduino.h>
 #include "DHT.h"
-
-#define DHTPIN 4
-#define DHTTYPE DHT11
 
 class ReadDHT
 {
     DHT dht;
 
 public:
-    ReadDHT() : dht(DHTPIN, DHTTYPE)
+    ReadDHT(int dhtPin, int dhtType) : dht(dhtPin, dhtType)
     {
         dht.begin();
     }
@@ -26,3 +26,5 @@ public:
         return temp;
     }
 };
+
+#endif
