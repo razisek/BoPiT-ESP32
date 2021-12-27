@@ -1,10 +1,11 @@
+#ifndef __SOIL_MOISTURE_SENSOR_H__
+#define __SOIL_MOISTURE_SENSOR_H__
+
 #include <Arduino.h>
 
 class SoilMosture
 {
-    const int SensorPin = 35;
-    int soilMoistureValue = 0;
-    int soilmoisturepercent = 0;
+    const int *SensorPin;
     const int AirValue = 4095;
     const int WaterValue = 1270;
     //tanah kering = 40-55%
@@ -12,14 +13,14 @@ class SoilMosture
     //tanah basah = 85%
 
 public:
-    SoilMosture()
-    {
+    SoilMosture(int SensorPin){
+        SoilMosture::SensorPin = &SensorPin;
     }
 
     int getKelembaban()
     {
-        soilMoistureValue = analogRead(SensorPin);
-        soilmoisturepercent = map(soilMoistureValue, AirValue, WaterValue, 0, 100);
-        return soilmoisturepercent;
+        return map(analogRead(*SensorPin), AirValue, WaterValue, 0, 100);
     }
 };
+
+#endif
