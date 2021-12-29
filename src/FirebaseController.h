@@ -82,17 +82,15 @@ public:
 
     void sendNotification()
     {
-        int debit = flowair.getWaterFlow();
         Firebase.getString(fbdo, "/Token");
         fbdo.fcm.begin("AAAAJn7rcU0:APA91bECX7dFufaRYc9LzLbSXmIQCFpqmHiJnhg9_h-Mk2W03gaSWPeUmZTxw5235Caqcchm36tyeblsDSFLHyZEfmrA0w9gjTrWtLG6mdprG7tUw8tOUn64ak4W2Emk_ZXhKYx3EYRH");
         fbdo.fcm.setPriority("high");
         fbdo.fcm.setTimeToLive(5000);
         fbdo.fcm.setNotifyMessage("Informasi", "Penyiraman telah berhasil dilakukan!");
-        fbdo.fcm.setDataMessage("{\"debit\":58}");
+        fbdo.fcm.setDataMessage("{\"debit\":" + String(flowair.getTotalMilliLiters()) + "}");
         fbdo.fcm.addDeviceToken(fbdo.to<String>());
         Firebase.sendMessage(fbdo, 0);
         fbdo.fcm.clearDeviceToken();
-        flowair.getWaterFlow(true);
     }
 
     bool isServiceOn()

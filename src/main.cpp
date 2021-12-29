@@ -7,15 +7,21 @@
 #include <WaterFlow.h>
 #include "Penyiram.h"
 
-//pin 32 = waterflow
-//pin 33 = soil mosture
-//pin 16 = DHT
-//pin 17 = dallas
+// pin 32 = waterflow
+// pin 33 = soil mosture
+// pin 16 = DHT
+// pin 17 = dallas
 
 #define DELAY_UPDATE_FIREBASE (600000) // 10 menit
 #define DELAY_GET_SERVICE (10000)      // 10 detik
+
 #define SOIL_MOISTURE_THRESHOLD (64)
 #define SOIL_MOISTURE_SENSOR_PIN (33)
+
+#define RELAY_PIN (27)
+
+#define WATERFLOW_SENSOR_PIN (32)
+
 #define DHT_SENSOR_PIN (16)
 #define DALLAS_SENSOR_PIN (17)
 
@@ -25,14 +31,16 @@ int lastRun = 61;
 TaskHandle_t Task1;
 TaskHandle_t Task2;
 
+WaterFlow debit;
+
 SoilMosture kelembaban(SOIL_MOISTURE_SENSOR_PIN);
+
+bool isTaskRunning = false;
 
 void Task1Func(void *Parameters)
 {
-  WaterFlow debit;
-  bool isTaskRunning = false;
 
-  Penyiram penyiram(27, SOIL_MOISTURE_THRESHOLD);
+  Penyiram penyiram(RELAY_PIN, SOIL_MOISTURE_THRESHOLD);
 
   for (;;)
   {
@@ -43,11 +51,14 @@ void Task1Func(void *Parameters)
         penyiram.start();
         isTaskRunning = true;
       }
-      debit.getWaterFlow();
-      Serial.println(kelembaban.getKelembaban());
-      penyiram.run(kelembaban.getKelembaban(), &isTaskRunning);
-    }
 
+      Serial.println(kelembaban.getKelembaban());
+
+      penyiram.run(kelembaban.getKelembaban(), &isTaskRunning);
+      debit.run();
+
+      onRunning = isTaskRunning;
+    }
     delay(5);
   }
 }
@@ -76,29 +87,42 @@ void Task2Func(void *Parameters)
   unsigned int lastmillis1 = millis();
   unsigned int lastmillis2 = millis();
 
+  bool lastOnRunning = onRunning;
+
   for (;;)
   {
     if (millis() - lastmillis2 >= DELAY_GET_SERVICE)
     {
       if (fbData.isServiceOn())
       {
-        if (kelembaban.getKelembaban() >= 64 && onRunning)
+        if (onRunning != lastOnRunning)
         {
           Serial.println("ganti status penyiraman");
-          onRunning = 0;
+
+          fbData.sendNotification();
+          debit.stopReading();
+
+          lastOnRunning = onRunning;
         }
 
         if (fbData.isScheduleRun(onRunning, lastRun))
         {
           Serial.println("penyiraman berhasil");
-          onRunning = 1;
+          onRunning = true;
+          lastOnRunning = onRunning;
+
           lastRun = fbData.getMinute();
+
+          debit.startReading();
         }
 
         if (fbData.isAutomasiRun(onRunning))
         {
           Serial.println("penyiraman berhasil");
-          onRunning = 1;
+          onRunning = true;
+          lastOnRunning = onRunning;
+
+          debit.startReading();
         }
       }
       lastmillis2 = millis();
@@ -126,7 +150,7 @@ void IRAM_ATTR pulseCounter()
 
 void setup()
 {
-  attachInterrupt(digitalPinToInterrupt(32), pulseCounter, FALLING);
+  attachInterrupt(digitalPinToInterrupt(WATERFLOW_SENSOR_PIN), pulseCounter, FALLING);
   Serial.begin(115200);
 
   xTaskCreatePinnedToCore(

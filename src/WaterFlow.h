@@ -3,44 +3,65 @@
 
 #include <Arduino.h>
 
-long currentMillis = 0;
-long previousMillis = 0;
-byte pulse1Sec = 0;
-float calibrationFactor = 4.5;
-int interval = 1000;
+#define CALIBRATION_FACTOR (4.5)
+#define WATER_FLOW_UPDATE_INTERVAL (1000)
+
 volatile byte pulseCount;
-float flowRate;
-unsigned int flowMilliLitres;
-unsigned long totalMilliLitres;
 
 class WaterFlow
 {
+    unsigned long currentMillis;
+    unsigned long previousMillis;
+    unsigned long totalMilliLitres;
+
+    bool isRunning;
+
+    byte pulse1Sec;
+
 public:
     WaterFlow()
     {
-        pulseCount = 0;
-        flowRate = 0.0;
-        flowMilliLitres = 0;
+        isRunning = false;
+
+        currentMillis = 0;
         previousMillis = 0;
+        pulseCount = 0;
+        pulse1Sec = 0;
     };
 
-    int getWaterFlow(bool stop = false)
+    int getTotalMilliLiters()
     {
-        Serial.println(totalMilliLitres);
-        currentMillis = millis();
-        if (stop)
+        return totalMilliLitres;
+    }
+
+    void startReading()
+    {
+        previousMillis = millis();
+        totalMilliLitres = 0;
+
+        isRunning = true;
+    }
+
+    void stopReading()
+    {
+        pulseCount = 0;
+
+        isRunning = false;
+    }
+
+    void run()
+    {
+        if (isRunning && millis() - currentMillis >= WATER_FLOW_UPDATE_INTERVAL)
         {
-            totalMilliLitres = 0;
-        }
-        if (currentMillis - previousMillis > interval && !stop)
-        {
+            currentMillis = millis();
+
             pulse1Sec = pulseCount;
             pulseCount = 0;
-            flowRate = ((1000.0 / (millis() - previousMillis)) * pulse1Sec) / calibrationFactor;
+
+            float flowRate = ((1000.0 / (millis() - previousMillis)) * pulse1Sec) / CALIBRATION_FACTOR;
             previousMillis = millis();
-            flowMilliLitres = (flowRate / 60) * 1000;
-            totalMilliLitres += flowMilliLitres;
-            return totalMilliLitres;
+
+            totalMilliLitres += (long)(flowRate / 60) * 1000;
         }
     }
 };
