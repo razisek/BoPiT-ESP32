@@ -2,9 +2,12 @@
 #define __PENYIRAM_H__
 
 #include <Arduino.h>
+#include <FirebaseController.h>
 
 #define DEFAULT_RELAY_STATUS LOW
+#define SOIL_MOISTURE_SENSOR_PIN (33)
 
+FirebaseController fbData(17, 16, DHT11, SOIL_MOISTURE_SENSOR_PIN);
 
 class Penyiram
 {
@@ -32,9 +35,11 @@ public:
 
     void run(int soilValue, bool *onRunning){
         if (pumpStatus && soilValue >= *threshold){
+            Serial.println("mandek");
             digitalWrite(*relayPin, LOW);
             pumpStatus = false;
             *onRunning = false;
+            fbData.sendNotification();
         }
     }
 };

@@ -4,22 +4,55 @@
 #include <FirebaseController.h>
 #include <FirebaseConnection.h>
 #include <addons/RTDBHelper.h>
-
+#include <WaterFlow.h>
 #include "Penyiram.h"
 
-#define DELAY_UPDATE_FIREBASE (600000) // 10 menit
-#define SOIL_MOISTURE_THRESHOLD (64)
-#define SOIL_MOISTURE_SENSOR_PIN (35)
+//pin 32 = waterflow
+//pin 33 = soil mosture
+//pin 16 = DHT
+//pin 17 = dallas
 
+#define DELAY_UPDATE_FIREBASE (600000) // 10 menit
+#define DELAY_GET_SERVICE (10000)      // 10 detik
+#define SOIL_MOISTURE_THRESHOLD (64)
+#define SOIL_MOISTURE_SENSOR_PIN (33)
+#define DHT_SENSOR_PIN (16)
+#define DALLAS_SENSOR_PIN (17)
 
 bool wifiStatus = false, onRunning = false;
-int nowMinute = 0;
-unsigned int lastmillis = millis();
+int lastRun = 61;
 
 TaskHandle_t Task1;
 TaskHandle_t Task2;
 
+SoilMosture kelembaban(SOIL_MOISTURE_SENSOR_PIN);
+
 void Task1Func(void *Parameters)
+{
+  WaterFlow debit;
+  bool isTaskRunning = false;
+
+  Penyiram penyiram(27, SOIL_MOISTURE_THRESHOLD);
+
+  for (;;)
+  {
+    if (onRunning)
+    {
+      if (!isTaskRunning)
+      {
+        penyiram.start();
+        isTaskRunning = true;
+      }
+      debit.getWaterFlow();
+      Serial.println(kelembaban.getKelembaban());
+      penyiram.run(kelembaban.getKelembaban(), &isTaskRunning);
+    }
+
+    delay(5);
+  }
+}
+
+void Task2Func(void *Parameters)
 {
   FirebaseData fbdo;
   WifiConnection KonekWifi;
@@ -37,66 +70,63 @@ void Task1Func(void *Parameters)
     fbCon.getConfig();
     fbCon.begin();
   }
-  FirebaseController fbData(25, 4, DHT11, SOIL_MOISTURE_SENSOR_PIN);
+
+  FirebaseController fbData(DALLAS_SENSOR_PIN, DHT_SENSOR_PIN, DHT11, SOIL_MOISTURE_SENSOR_PIN);
+
+  unsigned int lastmillis1 = millis();
+  unsigned int lastmillis2 = millis();
 
   for (;;)
   {
-    if (fbData.isServiceOn())
+    if (millis() - lastmillis2 >= DELAY_GET_SERVICE)
     {
-      if (nowMinute + 1 <= fbData.getMinute() && onRunning)
+      if (fbData.isServiceOn())
       {
-        Serial.println("Ganti Status Penyiraman");
-        onRunning = 0;
-      }
+        if (kelembaban.getKelembaban() >= 64 && onRunning)
+        {
+          Serial.println("ganti status penyiraman");
+          onRunning = 0;
+        }
 
-      if (fbData.isScheduleRun(onRunning))
-      {
-        Serial.println("PENYIRAMAN BERHASIL");
-        nowMinute = fbData.getMinute();
-        onRunning = 1;
-      }
+        if (fbData.isScheduleRun(onRunning, lastRun))
+        {
+          Serial.println("penyiraman berhasil");
+          onRunning = 1;
+          lastRun = fbData.getMinute();
+        }
 
-      if (fbData.isAutomasiRun(onRunning))
-      {
-        Serial.println("PENYIRAMAN BERHASIL");
-        nowMinute = fbData.getMinute();
-        onRunning = 1;
+        if (fbData.isAutomasiRun(onRunning))
+        {
+          Serial.println("penyiraman berhasil");
+          onRunning = 1;
+        }
       }
+      lastmillis2 = millis();
     }
 
-    if (millis() - lastmillis >= DELAY_UPDATE_FIREBASE)
+    if (millis() - lastmillis1 >= DELAY_UPDATE_FIREBASE)
     {
       fbData.setSensorData();
-      lastmillis = millis();
+      lastmillis1 = millis();
     }
-    delay(5);
+
+    if (lastRun + 1 == fbData.getMinute())
+    {
+      lastRun = 61;
+      fbData.updateSchedule();
+    }
+    delay(1);
   }
 }
 
-void Task2Func(void *Parameters)
+void IRAM_ATTR pulseCounter()
 {
-  bool isTaskRunning = false;
-
-  Penyiram penyiram(13, SOIL_MOISTURE_THRESHOLD);
-  SoilMosture kelembaban(SOIL_MOISTURE_SENSOR_PIN);
-
-  for (;;)
-  {
-    if (onRunning){
-      if (!isTaskRunning){
-        penyiram.start();
-        isTaskRunning = true;
-      }
-
-      penyiram.run(kelembaban.getKelembaban(), &isTaskRunning);
-    }
-
-    delay(5);
-  }
+  pulseCount++;
 }
 
 void setup()
 {
+  attachInterrupt(digitalPinToInterrupt(32), pulseCounter, FALLING);
   Serial.begin(115200);
 
   xTaskCreatePinnedToCore(

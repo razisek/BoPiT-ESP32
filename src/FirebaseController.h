@@ -10,6 +10,7 @@
 #include <ReadDHT.h>
 #include <SoilMosture.h>
 #include <ReadDallas.h>
+#include <WaterFlow.h>
 
 #define NTP_SERVER "pool.ntp.org"
 
@@ -19,12 +20,14 @@ class FirebaseController
     ReadDallas dallas;
     ReadDHT dht;
     SoilMosture lembab;
+    WaterFlow flowair;
     time_t now;
     struct tm *timeinfo;
 
     const char *ntpServer = NTP_SERVER;
     const long gmtOffset_sec = 25200;
     const int daylightOffset_sec = 0;
+    int lastRun = 0;
 
     void showError()
     {
@@ -79,15 +82,17 @@ public:
 
     void sendNotification()
     {
+        int debit = flowair.getWaterFlow();
         Firebase.getString(fbdo, "/Token");
         fbdo.fcm.begin("AAAAJn7rcU0:APA91bECX7dFufaRYc9LzLbSXmIQCFpqmHiJnhg9_h-Mk2W03gaSWPeUmZTxw5235Caqcchm36tyeblsDSFLHyZEfmrA0w9gjTrWtLG6mdprG7tUw8tOUn64ak4W2Emk_ZXhKYx3EYRH");
         fbdo.fcm.setPriority("high");
         fbdo.fcm.setTimeToLive(5000);
         fbdo.fcm.setNotifyMessage("Informasi", "Penyiraman telah berhasil dilakukan!");
-        fbdo.fcm.setDataMessage("{\"debit\":89}");
+        fbdo.fcm.setDataMessage("{\"debit\":58}");
         fbdo.fcm.addDeviceToken(fbdo.to<String>());
         Firebase.sendMessage(fbdo, 0);
         fbdo.fcm.clearDeviceToken();
+        flowair.getWaterFlow(true);
     }
 
     bool isServiceOn()
@@ -102,7 +107,7 @@ public:
         }
     }
 
-    bool isScheduleRun(bool running)
+    bool isScheduleRun(bool running, int last)
     {
         char buff[15];
         String path = "/jadwal/" + String(getHour());
@@ -118,7 +123,8 @@ public:
             deserializeJson(doc, fbdo.jsonString());
             bool enable = doc["enable"];
             int minute = doc["minute"];
-            if (enable && minute == getMinute() && !running)
+            lastRun = minute;
+            if (enable && minute == getMinute() && !running && lastRun != last)
             {
                 return true;
             }
@@ -127,6 +133,11 @@ public:
                 return false;
             }
         }
+    }
+
+    void updateSchedule()
+    {
+        lastRun = 61;
     }
 
     bool isAutomasiRun(bool running)
@@ -182,7 +193,6 @@ public:
         }
         else
         {
-            Serial.println("GADA BOSS");
             return false;
         }
     }
