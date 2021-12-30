@@ -7,12 +7,15 @@
 #define WATER_FLOW_UPDATE_INTERVAL (1000)
 
 volatile byte pulseCount;
+float calibrationFactor = 4.5;
 
 class WaterFlow
 {
-    unsigned long currentMillis;
-    unsigned long previousMillis;
+    long currentMillis = 0;
+    long previousMillis = 0;
     unsigned long totalMilliLitres;
+    float flowRate;
+    unsigned int flowMilliLitres;
 
     bool isRunning;
 
@@ -23,10 +26,10 @@ public:
     {
         isRunning = false;
 
-        currentMillis = 0;
-        previousMillis = 0;
         pulseCount = 0;
-        pulse1Sec = 0;
+        flowRate = 0.0;
+        flowMilliLitres = 0;
+        previousMillis = 0;
     };
 
     int getTotalMilliLiters()
@@ -51,17 +54,16 @@ public:
 
     void run()
     {
-        if (isRunning && millis() - currentMillis >= WATER_FLOW_UPDATE_INTERVAL)
+        currentMillis = millis();
+        if (isRunning && currentMillis - previousMillis > WATER_FLOW_UPDATE_INTERVAL)
         {
-            currentMillis = millis();
-
             pulse1Sec = pulseCount;
             pulseCount = 0;
-
-            float flowRate = ((1000.0 / (millis() - previousMillis)) * pulse1Sec) / CALIBRATION_FACTOR;
+            flowRate = ((1000.0 / (millis() - previousMillis)) * pulse1Sec) / calibrationFactor;
             previousMillis = millis();
-
-            totalMilliLitres += (long)(flowRate / 60) * 1000;
+            flowMilliLitres = (flowRate / 60) * 1000;
+            totalMilliLitres += flowMilliLitres;
+            Serial.println(totalMilliLitres);
         }
     }
 };

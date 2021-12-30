@@ -10,7 +10,6 @@
 #include <ReadDHT.h>
 #include <SoilMosture.h>
 #include <ReadDallas.h>
-#include <WaterFlow.h>
 
 #define NTP_SERVER "pool.ntp.org"
 
@@ -20,7 +19,6 @@ class FirebaseController
     ReadDallas dallas;
     ReadDHT dht;
     SoilMosture lembab;
-    WaterFlow flowair;
     time_t now;
     struct tm *timeinfo;
 
@@ -80,14 +78,14 @@ public:
         Firebase.updateNode(fbdo, F("/sensorData"), json);
     }
 
-    void sendNotification()
+    void sendNotification(int totalDebit)
     {
         Firebase.getString(fbdo, "/Token");
         fbdo.fcm.begin("AAAAJn7rcU0:APA91bECX7dFufaRYc9LzLbSXmIQCFpqmHiJnhg9_h-Mk2W03gaSWPeUmZTxw5235Caqcchm36tyeblsDSFLHyZEfmrA0w9gjTrWtLG6mdprG7tUw8tOUn64ak4W2Emk_ZXhKYx3EYRH");
         fbdo.fcm.setPriority("high");
         fbdo.fcm.setTimeToLive(5000);
         fbdo.fcm.setNotifyMessage("Informasi", "Penyiraman telah berhasil dilakukan!");
-        fbdo.fcm.setDataMessage("{\"debit\":" + String(flowair.getTotalMilliLiters()) + "}");
+        fbdo.fcm.setDataMessage("{\"debit\":" + String(totalDebit) + "}");
         fbdo.fcm.addDeviceToken(fbdo.to<String>());
         Firebase.sendMessage(fbdo, 0);
         fbdo.fcm.clearDeviceToken();

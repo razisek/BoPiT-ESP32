@@ -18,9 +18,9 @@
 #define SOIL_MOISTURE_THRESHOLD (64)
 #define SOIL_MOISTURE_SENSOR_PIN (33)
 
-#define RELAY_PIN (27)
+#define RELAY_PIN (32)
 
-#define WATERFLOW_SENSOR_PIN (32)
+#define WATERFLOW_SENSOR_PIN (27)
 
 #define DHT_SENSOR_PIN (16)
 #define DALLAS_SENSOR_PIN (17)
@@ -51,8 +51,6 @@ void Task1Func(void *Parameters)
         penyiram.start();
         isTaskRunning = true;
       }
-
-      Serial.println(kelembaban.getKelembaban());
 
       penyiram.run(kelembaban.getKelembaban(), &isTaskRunning);
       debit.run();
@@ -99,7 +97,9 @@ void Task2Func(void *Parameters)
         {
           Serial.println("ganti status penyiraman");
 
-          fbData.sendNotification();
+          Serial.println(debit.getTotalMilliLiters());
+
+          fbData.sendNotification(debit.getTotalMilliLiters());
           debit.stopReading();
 
           lastOnRunning = onRunning;
@@ -150,7 +150,7 @@ void IRAM_ATTR pulseCounter()
 
 void setup()
 {
-  attachInterrupt(digitalPinToInterrupt(WATERFLOW_SENSOR_PIN), pulseCounter, FALLING);
+  attachInterrupt(digitalPinToInterrupt(27), pulseCounter, FALLING);
   Serial.begin(115200);
 
   xTaskCreatePinnedToCore(
