@@ -21,10 +21,14 @@ class WifiConnection
         if (fileConfig.jsonIsOk() && !doc.isNull())
         {
             ssid = doc["ssid"];
+            Serial.print("SSID => :");
+            Serial.println(ssid);
             isPasswordLess = true;
             if (doc.containsKey("password"))
             {
                 password = doc["password"];
+                Serial.print("PASSWORD : ");
+                Serial.println(password);
                 isPasswordLess = false;
             }
             return true;

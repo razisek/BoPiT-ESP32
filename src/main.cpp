@@ -12,7 +12,7 @@
 // pin 16 = DHT
 // pin 17 = dallas
 
-#define DELAY_UPDATE_FIREBASE (600000) // 10 menit
+#define DELAY_UPDATE_FIREBASE (60000) // 10 menit
 #define DELAY_GET_SERVICE (10000)      // 10 detik
 
 #define SOIL_MOISTURE_THRESHOLD (64)
@@ -22,10 +22,10 @@
 
 #define WATERFLOW_SENSOR_PIN (27)
 
-#define DHT_SENSOR_PIN (16)
-#define DALLAS_SENSOR_PIN (17)
+#define DHT_SENSOR_PIN (32)
+#define DALLAS_SENSOR_PIN (15)
 
-bool wifiStatus = false, onRunning = false;
+bool wifiStatus = 0, onRunning = false;
 int lastRun = 61;
 
 TaskHandle_t Task1;

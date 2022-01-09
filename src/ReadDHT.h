@@ -17,6 +17,7 @@ public:
     int KelembabanUdara()
     {
         float humidity = dht.readHumidity();
+        Serial.println(humidity);
         return humidity;
     }
 
