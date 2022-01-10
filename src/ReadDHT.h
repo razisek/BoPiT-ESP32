@@ -4,12 +4,15 @@
 #include <Arduino.h>
 #include "DHT.h"
 
+#define DHTPIN 4
+#define DHTTYPE DHT11
+
 class ReadDHT
 {
     DHT dht;
 
 public:
-    ReadDHT(int dhtPin, int dhtType) : dht(dhtPin, dhtType)
+    ReadDHT() : dht(DHTPIN, DHTTYPE)
     {
         dht.begin();
     }
@@ -17,13 +20,13 @@ public:
     int KelembabanUdara()
     {
         float humidity = dht.readHumidity();
-        Serial.println(humidity);
         return humidity;
     }
 
     int SuhuUdara()
     {
         float temp = dht.readTemperature();
+        Serial.println(temp);
         return temp;
     }
 };

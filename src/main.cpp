@@ -7,23 +7,24 @@
 #include <WaterFlow.h>
 #include "Penyiram.h"
 
-// pin 32 = waterflow
+// pin 27 = waterflow
 // pin 33 = soil mosture
-// pin 16 = DHT
-// pin 17 = dallas
+// pin 4 = DHT
+// pin 32 = dallas
 
-#define DELAY_UPDATE_FIREBASE (60000) // 10 menit
+// #define DELAY_UPDATE_FIREBASE (600000) // 10 menit
+#define DELAY_UPDATE_FIREBASE (1000) // 10 menit
 #define DELAY_GET_SERVICE (10000)      // 10 detik
 
 #define SOIL_MOISTURE_THRESHOLD (64)
 #define SOIL_MOISTURE_SENSOR_PIN (33)
 
-#define RELAY_PIN (32)
+#define RELAY_PIN (26)
 
 #define WATERFLOW_SENSOR_PIN (27)
 
-#define DHT_SENSOR_PIN (32)
-#define DALLAS_SENSOR_PIN (15)
+#define DHT_SENSOR_PIN (4)
+#define DALLAS_SENSOR_PIN (32)
 
 bool wifiStatus = 0, onRunning = false;
 int lastRun = 61;
@@ -34,6 +35,7 @@ TaskHandle_t Task2;
 WaterFlow debit;
 
 SoilMosture kelembaban(SOIL_MOISTURE_SENSOR_PIN);
+ReadDHT dht;
 
 bool isTaskRunning = false;
 
@@ -80,7 +82,7 @@ void Task2Func(void *Parameters)
     fbCon.begin();
   }
 
-  FirebaseController fbData(DALLAS_SENSOR_PIN, DHT_SENSOR_PIN, DHT11, SOIL_MOISTURE_SENSOR_PIN);
+  FirebaseController fbData(SOIL_MOISTURE_SENSOR_PIN);
 
   unsigned int lastmillis1 = millis();
   unsigned int lastmillis2 = millis();
@@ -129,8 +131,8 @@ void Task2Func(void *Parameters)
     }
 
     if (millis() - lastmillis1 >= DELAY_UPDATE_FIREBASE)
-    {
-      fbData.setSensorData();
+    {      
+      fbData.setSensorData(dht.KelembabanUdara(), dht.SuhuUdara());
       lastmillis1 = millis();
     }
 
@@ -150,8 +152,9 @@ void IRAM_ATTR pulseCounter()
 
 void setup()
 {
-  attachInterrupt(digitalPinToInterrupt(27), pulseCounter, FALLING);
   Serial.begin(115200);
+
+  attachInterrupt(digitalPinToInterrupt(WATERFLOW_SENSOR_PIN), pulseCounter, FALLING);
 
   xTaskCreatePinnedToCore(
       Task1Func, /* Task function. */
@@ -174,4 +177,6 @@ void setup()
 
 void loop()
 {
+  // dht.SuhuUdara();
+  // delay(1000);
 }

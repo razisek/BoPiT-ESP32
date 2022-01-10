@@ -11,7 +11,7 @@ class ReadDallas
     DallasTemperature sensors;
 
 public:
-    ReadDallas(int oneWireBus) : oneWire(oneWireBus), sensors(&oneWire)
+    ReadDallas(const int oneWireBus) : oneWire(oneWireBus), sensors(&oneWire)
     {
         sensors.begin();
     }

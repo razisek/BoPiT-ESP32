@@ -16,8 +16,6 @@
 class FirebaseController
 {
     FirebaseData fbdo;
-    ReadDallas dallas;
-    ReadDHT dht;
     SoilMosture lembab;
     time_t now;
     struct tm *timeinfo;
@@ -26,6 +24,7 @@ class FirebaseController
     const long gmtOffset_sec = 25200;
     const int daylightOffset_sec = 0;
     int lastRun = 0;
+    const int DallasPin = 4;
 
     void showError()
     {
@@ -40,7 +39,7 @@ class FirebaseController
     }
 
 public:
-    FirebaseController(int dsbPin, int dhtPin, int dhtType, int soilMoisturePin) : dallas(dsbPin), dht(dhtPin, dhtType), lembab(soilMoisturePin)
+    FirebaseController(int soilMoisturePin) : lembab(soilMoisturePin)
     {
         configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
     }
@@ -68,11 +67,14 @@ public:
         return timeinfo->tm_min;
     }
 
-    void setSensorData()
+    void setSensorData(int kelembabanUdara, int suhuUdara)
     {
         FirebaseJson json;
-        json.add("kelembabanUdara", dht.KelembabanUdara());
-        json.add("suhuUdara", dht.SuhuUdara());
+        ReadDallas dallas(DallasPin);
+        // Serial.println(lembab.getKelembaban());
+        // Serial.println(dallas.getSuhuTanah());
+        json.add("kelembabanUdara", kelembabanUdara);
+        json.add("suhuUdara", suhuUdara);
         json.add("kelembabanTanah", lembab.getKelembaban());
         json.add("suhuTanah", dallas.getSuhuTanah());
         Firebase.updateNode(fbdo, F("/sensorData"), json);
@@ -166,6 +168,7 @@ public:
         }
         else if (doc.containsKey("Suhu") && !running)
         {
+            ReadDallas dallas(DallasPin);
             JsonObject Suhu = doc["Suhu"];
             bool isEnable = Suhu["enable"];
             const char *getOprs = Suhu["operator"];

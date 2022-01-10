@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-#define DEFAULT_RELAY_STATUS LOW
+#define DEFAULT_RELAY_STATUS HIGH
 
 class Penyiram
 {
@@ -24,7 +24,7 @@ public:
 
     void start()
     {
-        digitalWrite(relayPin, HIGH);
+        digitalWrite(relayPin, LOW);
         pumpStatus = true;
     }
 
@@ -32,7 +32,7 @@ public:
         if (pumpStatus && soilValue >= threshold){
             Serial.println("mandek");
 
-            digitalWrite(relayPin, LOW);
+            digitalWrite(relayPin, HIGH);
 
             pumpStatus = false;
             *onRunning = false;
