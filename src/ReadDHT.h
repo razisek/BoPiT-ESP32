@@ -12,7 +12,7 @@ class ReadDHT
     DHT dht;
 
 public:
-    ReadDHT() : dht(DHTPIN, DHTTYPE)
+    ReadDHT(int dhtPin, int dhtType) : dht(dhtPin, dhtType)
     {
         dht.begin();
     }
@@ -26,7 +26,6 @@ public:
     int SuhuUdara()
     {
         float temp = dht.readTemperature();
-        Serial.println(temp);
         return temp;
     }
 };
