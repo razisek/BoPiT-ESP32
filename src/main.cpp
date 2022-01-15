@@ -12,8 +12,9 @@
 // pin 33 = soil mosture
 // pin 4 = DHT
 // pin 32 = dallas
+// pin relay = 26
 
-#define DELAY_UPDATE_FIREBASE (600000) // 10 menit
+#define DELAY_UPDATE_FIREBASE (1000) // 10 menit
 #define DELAY_GET_SERVICE (10000)    // 10 detik
 
 #define SOIL_MOISTURE_THRESHOLD (64)
@@ -122,14 +123,14 @@ void Task2Func(void *Parameters)
           debit.startReading();
         }
 
-        if (kelembaban.getKelembaban() <= SOIL_MOISTURE_MINIMUM)
-        {
-          Serial.println("penyiraman berhasil KELEMBABAN");
-          onRunning = true;
-          lastOnRunning = onRunning;
+        // if (kelembaban.getKelembaban() <= SOIL_MOISTURE_MINIMUM)
+        // {
+        //   Serial.println("penyiraman berhasil KELEMBABAN");
+        //   onRunning = true;
+        //   lastOnRunning = onRunning;
 
-          debit.startReading();
-        }
+        //   debit.startReading();
+        // }
       }
       lastmillis2 = millis();
     }

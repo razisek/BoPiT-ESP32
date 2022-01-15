@@ -39,12 +39,6 @@ public:
         return doc;
     }
 
-    void writeConfig(String *json, configType type){
-        File file = SPIFFS.open(String(fileConfigName[type]).c_str(), "w+");
-        file.print(*json);
-        file.close();
-    }
-
     bool jsonIsOk()
     {
         return !error;

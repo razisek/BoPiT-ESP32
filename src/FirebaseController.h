@@ -106,6 +106,7 @@ public:
 
     bool isScheduleRun(bool running, int last)
     {
+        Serial.println(getHour());
         char buff[15];
         String path = "/jadwal/" + String(getHour());
         path.toCharArray(buff, path.length() + 1);
