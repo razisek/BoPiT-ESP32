@@ -35,6 +35,8 @@ bool onRunning = false;
 int lastRun = 61;
 int suhuTanah = 0;
 
+unsigned long lastEpoch = 0;
+
 uint8_t totalRunTime = 0;
 uint8_t runTime = 0;
 uint8_t SoilMosture_Treshold = SOIL_MOISTURE_THRESHOLD;
@@ -142,7 +144,7 @@ void Task2Func(void *Parameters)
       {
         fbData.setSensorData(suhuTanah);
         delay(10);
-        fbData.sendWaterUsageLog(debit.getTotalMilliLiters());
+        fbData.sendWaterUsageLog(debit.getTotalMilliLiters(), lastEpoch);
         delay(10);
         fbData.sendNotification(debit.getTotalMilliLiters());
       }
@@ -159,6 +161,7 @@ void Task2Func(void *Parameters)
           if (fbData.isScheduleRun(onRunning, lastRun))
           {
             runTime = fbData.jadwalRunTime();
+            lastEpoch = fbData.getEpoch();
             totalRunTime = 0;
 
             Serial.println("penyiraman berhasil JADWAL");
@@ -175,6 +178,7 @@ void Task2Func(void *Parameters)
           if (fbData.isAutomasiRun(onRunning, suhuTanah))
           {
             SoilMosture_Treshold = fbData.getSoilThreshold();
+            lastEpoch = fbData.getEpoch();
 
             Serial.println("penyiraman berhasil AUTOMASI");
 

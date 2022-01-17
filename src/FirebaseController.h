@@ -42,6 +42,13 @@ class FirebaseController
         return timeinfo->tm_hour;
     }
 
+public:
+    FirebaseController(int dhtPin, int dhtType, int soilMoisturePin) : lembab(soilMoisturePin), dht(dhtPin, dhtType)
+    {
+        configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+        lastRun = 0;
+    }
+
     unsigned long getEpoch()
     {
         time_t now;
@@ -52,13 +59,6 @@ class FirebaseController
         }
         time(&now);
         return now;
-    }
-
-public:
-    FirebaseController(int dhtPin, int dhtType, int soilMoisturePin) : lembab(soilMoisturePin), dht(dhtPin, dhtType)
-    {
-        configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-        lastRun = 0;
     }
 
     unsigned long getMinute()
@@ -93,9 +93,12 @@ public:
         fbdo.fcm.clearDeviceToken();
     }
 
-    void sendWaterUsageLog(int totalDebit)
+    void sendWaterUsageLog(int totalDebit, unsigned int lastEpoch)
     {
-        Firebase.setInt(fbdo, "/Log/" + String(getEpoch()) + "/TotalUsage", totalDebit);
+        FirebaseJson json;
+        json.add("TotalUsage", totalDebit);
+        json.add("Runtime", getEpoch() - lastEpoch);
+        Firebase.setJSON(fbdo, "/Log/" + String(getEpoch()), json);
     }
 
     bool isServiceOn()
