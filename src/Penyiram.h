@@ -5,34 +5,49 @@
 
 #define DEFAULT_RELAY_STATUS HIGH
 
+#if DEFAULT_RELAY_STATUS == HIGH
+#define RELAY_ON LOW
+#define RELAY_OFF HIGH
+#else
+#define RELAY_ON HIGH
+#define RELAY_OFF LOW
+#endif
+
 class Penyiram
 {
-    const int relayPin;
-    const int threshold;
-    
+    const uint8_t relayPin;
+
     bool pumpStatus;
 
 public:
-    Penyiram(const int relayPin, const int threshold) : relayPin(relayPin), threshold(threshold)
+    Penyiram(const int relayPin) : relayPin(relayPin)
     {
         pumpStatus = false;
 
         pinMode(relayPin, OUTPUT);
 
-        digitalWrite(relayPin, DEFAULT_RELAY_STATUS);
+        digitalWrite(relayPin, RELAY_OFF);
     }
 
     void start()
     {
-        digitalWrite(relayPin, LOW);
+        digitalWrite(relayPin, RELAY_ON);
         pumpStatus = true;
     }
 
-    void run(int soilValue, bool *onRunning){
-        if (pumpStatus && soilValue >= threshold){
+    void stop()
+    {
+        digitalWrite(relayPin, RELAY_OFF);
+        pumpStatus = false;
+    }
+
+    void run(int soilValue, bool *onRunning, int threshold)
+    {
+        if (pumpStatus && soilValue >= threshold)
+        {
             Serial.println("mandek");
 
-            digitalWrite(relayPin, HIGH);
+            digitalWrite(relayPin, RELAY_OFF);
 
             pumpStatus = false;
             *onRunning = false;
