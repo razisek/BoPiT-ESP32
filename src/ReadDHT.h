@@ -4,29 +4,48 @@
 #include <Arduino.h>
 #include "DHT.h"
 
-#define DHTPIN 4
-#define DHTTYPE DHT11
-
 class ReadDHT
 {
     DHT dht;
+
+    uint8_t lastHum;
+    int lastTemp;
 
 public:
     ReadDHT(int dhtPin, int dhtType) : dht(dhtPin, dhtType)
     {
         dht.begin();
+
+        lastHum = 0;
+        lastTemp = 0;
     }
 
     int KelembabanUdara()
     {
         float humidity = dht.readHumidity();
-        return humidity;
+        if (!isnan(humidity))
+        {
+            lastHum = humidity;
+            return humidity;
+        }
+        else
+        {
+            return lastHum;
+        }
     }
 
     int SuhuUdara()
     {
         float temp = dht.readTemperature();
-        return temp;
+        if (!isnan(temp))
+        {
+            lastTemp = temp;
+            return temp;
+        }
+        else
+        {
+            return lastTemp;
+        }
     }
 };
 

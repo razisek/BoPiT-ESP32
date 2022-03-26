@@ -3,11 +3,12 @@
 
 #include <Arduino.h>
 
+#define SOIL_WET 1697
+#define SOIL_DRY 3650
+
 class SoilMosture
 {
     const int SensorPin;
-    const int AirValue = 4095;
-    const int WaterValue = 1270;
     // tanah kering = 40-55%
     // normal tanah semi lembab = 64%
     // tanah basah = 85%
@@ -19,7 +20,16 @@ public:
 
     int getKelembaban()
     {
-        return map(analogRead(SensorPin), AirValue, WaterValue, 0, 100);
+        int value = map(analogRead(SensorPin), SOIL_DRY, SOIL_WET, 0, 100);
+        if (value < 0)
+        {
+            value = 0;
+        }
+        else if (value > 100)
+        {
+            value = 100;
+        }
+        return value;
     }
 };
 

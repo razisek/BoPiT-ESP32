@@ -19,6 +19,7 @@ public:
     int getSuhuTanah()
     {
         sensors.requestTemperatures();
+        delay(3);
         float temperatureC = sensors.getTempCByIndex(0);
         return temperatureC;
     }
