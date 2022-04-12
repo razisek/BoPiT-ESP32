@@ -28,9 +28,9 @@ class WaterFlow
     byte pulse1Sec;
 
 public:
-    WaterFlow()
+    WaterFlow(uint8_t sensorPin)
     {
-        pinMode(WATERFLOW_SENSOR_PIN, INPUT_PULLUP);
+        pinMode(sensorPin, INPUT_PULLUP);
         isRunning = false;
 
         pulseCount = 0;
@@ -62,7 +62,7 @@ public:
         isRunning = false;
     }
 
-    void run()
+    void read()
     {
         currentMillis = millis();
         if (isRunning && currentMillis - previousMillis > WATER_FLOW_UPDATE_INTERVAL)
@@ -75,8 +75,6 @@ public:
             
             flowMilliLitres = (flowRate / 60) * 1000;
             totalMilliLitres += flowMilliLitres;
-            
-            Serial.println(totalMilliLitres);
         }
     }
 };

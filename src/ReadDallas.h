@@ -16,12 +16,11 @@ public:
         sensors.begin();
     }
 
-    int getSuhuTanah()
+    int getTemperature()
     {
         sensors.requestTemperatures();
         delay(3);
-        float temperatureC = sensors.getTempCByIndex(0);
-        return temperatureC;
+        return (float) sensors.getTempCByIndex(0);
     }
 };
 

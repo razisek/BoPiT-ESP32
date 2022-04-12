@@ -8,6 +8,7 @@
 #include "WifiConnection.h"
 #include "WaterFlow.h"
 #include "Penyiram.h"
+#include "Sensors.h"
 
 #define DELAY_UPDATE_FIREBASE (5000)
 #define DELAY_GET_SERVICE (10000)
@@ -21,41 +22,46 @@
 #define WATERFLOW_SENSOR_PIN (27)
 
 #define DHT_SENSOR_PIN (4)
+#define DHTTYPE (DHT11)
 #define DS18B20_PIN (32)
 
 TaskHandle_t Task1;
 TaskHandle_t Task2;
 
-WaterFlow debit;
+SemaphoreHandle_t xSemaphore = NULL;
 
-SoilMosture kelembaban(SOIL_MOISTURE_SENSOR_PIN);
+WaterFlow waterFlowSensor(WATERFLOW_SENSOR_PIN);
 
-bool onRunning = false;
+Sensors sensors(DS18B20_PIN, SOIL_MOISTURE_SENSOR_PIN, DHT_SENSOR_PIN, DHTTYPE);
 
 int lastRun = 61;
-int suhuTanah = 0;
 
 unsigned long lastEpoch = 0;
 
 uint8_t totalRunTime = 0;
 uint8_t runTime = 0;
-uint8_t SoilMosture_Treshold = SOIL_MOISTURE_THRESHOLD;
-uint8_t taskOwner;
+uint8_t soilMoistureThreshold = SOIL_MOISTURE_THRESHOLD;
 
 enum OwnerRun
 {
-  Automasi = 0,
-  Jadwal,
-} ownerRun;
+  Automation = 0,
+  Schedule,
+};
+
+struct Irigation
+{
+  OwnerRun taskOwner;
+  bool isRunning = false;
+  int lastRunning = 0;
+} irigation;
 
 void connect()
 {
-  WifiConnection KonekWifi;
+  WifiConnection connect;
 
-  if (KonekWifi.getClientConfig())
+  if (connect.getConfig())
   {
-    KonekWifi.wifiConnect();
-    Serial.println("connected");
+    connect.wifiConnect();
   }
 
   FirebaseConnection fbCon;
@@ -66,56 +72,79 @@ void connect()
   }
 }
 
+bool checkAutomation(FirebaseController *fbData)
+{
+  if (fbData->soilAutomationCheck(irigation.isRunning, sensors.getSoilTemperature()))
+  {
+    soilMoistureThreshold = fbData->getSoilMoistureThreshold();
+
+    irigation.isRunning = Automation;
+    irigation.isRunning = true;
+    return true;
+  }
+  return false;
+}
+
+bool checkSchedule(FirebaseController *fbData)
+{
+  if (fbData->isScheduleRun(irigation.isRunning, lastRun))
+  {
+    runTime = fbData->scheduleRunTime();
+    totalRunTime = 0;
+
+    irigation.taskOwner = Schedule;
+    irigation.isRunning = true;
+
+    lastRun = fbData->getMinute();
+    return true;
+  }
+  return false;
+}
+
 void Task1Func(void *Parameters)
 {
-  Penyiram penyiram(RELAY_PIN);
+  WaterPump waterPump(RELAY_PIN);
   ReadDallas dallas(DS18B20_PIN);
 
   bool isTaskRunning = false;
 
   unsigned long lastMillis = millis();
-  unsigned long lastMillis2 = millis();
 
   for (;;)
   {
-    if (onRunning)
+    xSemaphoreTake(xSemaphore, portMAX_DELAY);
+
+    if (irigation.isRunning)
     {
       if (!isTaskRunning)
       {
-        penyiram.start();
+        waterPump.start();
         isTaskRunning = true;
         lastMillis = millis();
       }
 
-      if (taskOwner == Automasi)
+      if (irigation.taskOwner == Automation)
       {
-        penyiram.run(kelembaban.getKelembaban(), &isTaskRunning, SoilMosture_Treshold);
+        waterPump.run(sensors.getAirHumidity(), &isTaskRunning, soilMoistureThreshold);
       }
-      else if (taskOwner == Jadwal)
+      else if (irigation.taskOwner == Schedule)
       {
         if (totalRunTime >= runTime)
         {
-          penyiram.stop();
+          waterPump.stop();
           isTaskRunning = false;
         }
+        else if (millis() - lastMillis >= 60000)
+        {
+          totalRunTime++;
+          lastMillis = millis();
+        }
       }
-      debit.run();
+      waterFlowSensor.read();
 
-      onRunning = isTaskRunning;
+      irigation.isRunning = isTaskRunning;
     }
-
-    if (taskOwner == Jadwal && millis() - lastMillis >= 60000)
-    {
-      totalRunTime++;
-      lastMillis = millis();
-    }
-
-    if (millis() - lastMillis2 >= DELAY_DS18B20_UPDATE)
-    {
-      suhuTanah = dallas.getSuhuTanah();
-      lastMillis2 = millis();
-    }
-
+    xSemaphoreGive(xSemaphore);
     delay(250);
   }
 }
@@ -124,86 +153,70 @@ void Task2Func(void *Parameters)
 {
   connect();
 
-  FirebaseController fbData(DHT_SENSOR_PIN, DHT11, SOIL_MOISTURE_SENSOR_PIN);
+  FirebaseController fbData;
 
   unsigned int lastmillis1 = millis();
   unsigned int lastmillis2 = millis();
 
-  bool lastOnRunning = onRunning;
+  bool lastRunning = irigation.isRunning;
 
   for (;;)
   {
-    if (onRunning != lastOnRunning)
+    xSemaphoreTake(xSemaphore, portMAX_DELAY);
+    if (irigation.isRunning != lastRunning)
     {
-      Serial.println("ganti status penyiraman");
-
-      Serial.println(debit.getTotalMilliLiters());
-
-      debit.stopReading();
-      if (debit.getTotalMilliLiters() > 0)
+      waterFlowSensor.stopReading();
+      if (waterFlowSensor.getTotalMilliLiters() > 0)
       {
-        fbData.setSensorData(suhuTanah);
+        fbData.updateSensorData(&sensors);
         delay(10);
-        fbData.sendWaterUsageLog(debit.getTotalMilliLiters(), lastEpoch);
+        fbData.sendWaterUsageLog(waterFlowSensor.getTotalMilliLiters(), lastEpoch);
         delay(10);
-        fbData.sendNotification(debit.getTotalMilliLiters());
+        fbData.sendNotification(waterFlowSensor.getTotalMilliLiters());
       }
 
-      lastOnRunning = onRunning;
+      lastRunning = irigation.isRunning;
     }
+    xSemaphoreGive(xSemaphore);
 
     if (millis() - lastmillis2 >= DELAY_GET_SERVICE)
     {
-      if (fbData.isServiceOn())
+      if (fbData.isServiceRun())
       {
-        if (!onRunning)
+        xSemaphoreTake(xSemaphore, portMAX_DELAY);
+        if (!irigation.isRunning)
         {
-          if (fbData.isScheduleRun(onRunning, lastRun))
+
+          if (checkSchedule(&fbData) || checkAutomation(&fbData))
           {
-            runTime = fbData.jadwalRunTime();
             lastEpoch = fbData.getEpoch();
-            totalRunTime = 0;
-
-            Serial.println("penyiraman berhasil JADWAL");
-
-            taskOwner = Jadwal;
-            onRunning = true;
-            lastOnRunning = onRunning;
-
-            lastRun = fbData.getMinute();
-
-            debit.startReading();
-          }
-
-          if (fbData.isAutomasiRun(onRunning, suhuTanah))
-          {
-            SoilMosture_Treshold = fbData.getSoilThreshold();
-            lastEpoch = fbData.getEpoch();
-
-            Serial.println("penyiraman berhasil AUTOMASI");
-
-            taskOwner = Automasi;
-            onRunning = true;
-            lastOnRunning = onRunning;
-
-            debit.startReading();
+            waterFlowSensor.startReading();
           }
         }
+        xSemaphoreGive(xSemaphore);
       }
       lastmillis2 = millis();
     }
 
     if (millis() - lastmillis1 >= DELAY_UPDATE_FIREBASE)
     {
-      fbData.setSensorData(suhuTanah);
+      xSemaphoreTake(xSemaphore, portMAX_DELAY);
+      fbData.updateSensorData(&sensors);
+      xSemaphoreGive(xSemaphore);
+
       lastmillis1 = millis();
     }
 
-    if (lastRun + 1 == fbData.getMinute())
+    xSemaphoreTake(xSemaphore, portMAX_DELAY);
+    if (irigation.isRunning && irigation.taskOwner == Schedule)
     {
-      lastRun = 61;
-      fbData.updateSchedule();
+      if (lastRun + 1 == fbData.getMinute())
+      {
+        lastRun = 61;
+        fbData.updateSchedule();
+      }
     }
+    xSemaphoreGive(xSemaphore);
     delay(1);
   }
 }
@@ -211,6 +224,9 @@ void Task2Func(void *Parameters)
 void setup()
 {
   esp_task_wdt_init(30, false);
+
+  xSemaphore = xSemaphoreCreateBinary();
+
   Serial.begin(115200);
 
   xTaskCreatePinnedToCore(
