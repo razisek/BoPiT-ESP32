@@ -12,7 +12,6 @@
 
 #define DELAY_UPDATE_FIREBASE (5000)
 #define DELAY_GET_SERVICE (10000)
-#define DELAY_DS18B20_UPDATE (2000)
 
 #define SOIL_MOISTURE_THRESHOLD (35)
 #define SOIL_MOISTURE_MINIMUM (20)
@@ -67,6 +66,7 @@ void connect()
   FirebaseConnection fbCon;
   if (WiFi.isConnected())
   {
+    Serial.println("WiFi Connected!");
     fbCon.getConfig();
     fbCon.begin();
   }
@@ -225,27 +225,27 @@ void setup()
 {
   esp_task_wdt_init(30, false);
 
-  xSemaphore = xSemaphoreCreateBinary();
+  xSemaphore = xSemaphoreCreateMutex();
 
   Serial.begin(115200);
 
   xTaskCreatePinnedToCore(
-      Task2Func, /* Task function. */
-      "Task1",   /* name of task. */
-      10000,     /* Stack size of task */
-      NULL,      /* parameter of the task */
-      1,         /* priority of the task */
-      &Task1,    /* Task handle to keep track of created task */
-      0);        /* pin task to core 0 */
+      Task2Func,
+      "Task1",
+      10000,
+      NULL,
+      1,
+      &Task1,
+      0);
 
   xTaskCreatePinnedToCore(
-      Task1Func, /* Task function. */
-      "Task2",   /* name of task. */
-      10000,     /* Stack size of task */
-      NULL,      /* parameter of the task */
-      1,         /* priority of the task */
-      &Task2,    /* Task handle to keep track of created task */
-      1);        /* pin task to core 1 */
+      Task1Func,
+      "Task2",
+      10000,
+      NULL,
+      1,
+      &Task2,
+      1);
 }
 
 void loop()
