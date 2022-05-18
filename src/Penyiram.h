@@ -13,14 +13,14 @@
 #define RELAY_OFF LOW
 #endif
 
-class Penyiram
+class WaterPump
 {
     const uint8_t relayPin;
 
     bool pumpStatus;
 
 public:
-    Penyiram(const int relayPin) : relayPin(relayPin)
+    WaterPump(const int relayPin) : relayPin(relayPin)
     {
         pumpStatus = false;
 
@@ -45,11 +45,7 @@ public:
     {
         if (pumpStatus && soilValue >= threshold)
         {
-            Serial.println("mandek");
-
-            digitalWrite(relayPin, RELAY_OFF);
-
-            pumpStatus = false;
+            stop();
             *onRunning = false;
         }
     }

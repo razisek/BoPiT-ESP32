@@ -7,17 +7,15 @@
 #include <FirebaseESP32.h>
 #include "addons/RTDBHelper.h"
 #include "time.h"
-#include <ReadDHT.h>
-#include <SoilMosture.h>
-#include <ReadDallas.h>
+#include "Sensors.h"
 
 #define NTP_SERVER "pool.ntp.org"
+
+#define DEFAULT_SOIL_MOISTURE_TRESHOLD 60
 
 class FirebaseController
 {
     FirebaseData fbdo;
-    SoilMosture lembab;
-    ReadDHT dht;
     time_t now;
 
     struct tm *timeinfo;
@@ -26,9 +24,9 @@ class FirebaseController
     const long gmtOffset_sec = 25200;
     const int daylightOffset_sec = 0;
 
-    uint8_t lastRun;
-    uint8_t soilMoistureThreshold;
-    uint16_t jadwalTimer;
+    uint8_t timeRunning;
+    uint8_t soilMoistureMaximum;
+    uint16_t scheduleTimer;
 
     void showError()
     {
@@ -43,10 +41,10 @@ class FirebaseController
     }
 
 public:
-    FirebaseController(int dhtPin, int dhtType, int soilMoisturePin) : lembab(soilMoisturePin), dht(dhtPin, dhtType)
+    FirebaseController()
     {
         configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-        lastRun = 0;
+        timeRunning = 0;
     }
 
     unsigned long getEpoch()
@@ -69,39 +67,45 @@ public:
         return timeinfo->tm_min;
     }
 
-    void setSensorData(int suhuTanah)
+    void updateSensorData(Sensors *sensors)
     {
         FirebaseJson json;
 
-        json.add("AirHumidity", dht.KelembabanUdara());
-        json.add("AirTemperature", dht.SuhuUdara());
-        json.add("SoilMoisture", lembab.getKelembaban());
-        json.add("SoilTemperature", suhuTanah);
+        json.add(F("AirHumidity"), sensors->getAirHumidity());
+        json.add(F("AirTemperature"), sensors->getAirTemperature());
+        json.add(F("SoilMoisture"), sensors->getSoilMoisture());
+        json.add(F("SoilTemperature"), sensors->getSoilTemperature());
+
         Firebase.updateNode(fbdo, F("/SensorData"), json);
     }
 
     void sendNotification(int totalDebit)
     {
+        String notifMessage = F("Penyiraman telah berhasil dilakukan!\nTotal air yang digunakan sebanyak ");
+
         Firebase.getString(fbdo, "/Token");
         fbdo.fcm.begin(F("AAAAJn7rcU0:APA91bECX7dFufaRYc9LzLbSXmIQCFpqmHiJnhg9_h-Mk2W03gaSWPeUmZTxw5235Caqcchm36tyeblsDSFLHyZEfmrA0w9gjTrWtLG6mdprG7tUw8tOUn64ak4W2Emk_ZXhKYx3EYRH"));
         fbdo.fcm.setPriority("high");
         fbdo.fcm.setTimeToLive(5000);
-        fbdo.fcm.setNotifyMessage("Informasi", "Penyiraman telah berhasil dilakukan!\nTotal air yang digunakan sebanyak " + String(totalDebit) + "ml");
-        fbdo.fcm.setDataMessage("{\"debit\":" + String(totalDebit) + "}");
+        fbdo.fcm.setNotifyMessage("Informasi", notifMessage + String(totalDebit) + "ml");
         fbdo.fcm.addDeviceToken(fbdo.to<String>());
+
         Firebase.sendMessage(fbdo, 0);
+        
         fbdo.fcm.clearDeviceToken();
     }
 
     void sendWaterUsageLog(int totalDebit, unsigned int lastEpoch)
     {
         FirebaseJson json;
-        json.add("TotalUsage", totalDebit);
-        json.add("Runtime", getEpoch() - lastEpoch);
+        
+        json.add(F("TotalUsage"), totalDebit);
+        json.add(F("Runtime"), getEpoch() - lastEpoch);
+
         Firebase.setJSON(fbdo, "/Log/" + String(getEpoch()), json);
     }
 
-    bool isServiceOn()
+    bool isServiceRun()
     {
         if (Firebase.getBool(fbdo, F("/AutoSprinkler")))
         {
@@ -111,19 +115,18 @@ public:
         return false;
     }
 
-    int getSoilThreshold()
+    int getSoilMoistureThreshold()
     {
-        return soilMoistureThreshold;
+        return soilMoistureMaximum;
     }
 
-    int jadwalRunTime()
+    int scheduleRunTime()
     {
-        return jadwalTimer;
+        return scheduleTimer;
     }
 
-    bool isScheduleRun(bool running, int last)
+    bool isScheduleRun(bool isRunning, int lastTime)
     {
-        Serial.println(getHour());
         DynamicJsonDocument doc(96);
         Firebase.get(fbdo, "/Schedule/" + String(getHour()));
 
@@ -131,11 +134,10 @@ public:
         {
             deserializeJson(doc, fbdo.jsonString());
             bool enable = doc["Enable"];
-            int minute = doc["Minute"];
-            lastRun = minute;
-            jadwalTimer = doc.containsKey("Runtime") ? doc["Runtime"] : 1;
+            timeRunning = (int) doc["Minute"];
+            scheduleTimer = doc.containsKey("Runtime") ? doc["Runtime"] : 1;
 
-            if (enable && minute == getMinute() && !running && lastRun != last)
+            if (enable && timeRunning == getMinute() && !isRunning && timeRunning != lastTime)
             {
                 return true;
             }
@@ -146,65 +148,42 @@ public:
 
     void updateSchedule()
     {
-        lastRun = 61;
+        timeRunning = 61;
     }
 
-    bool isAutomasiRun(bool running, int suhuTanah)
+    bool soilAutomationCheck(bool isRunning, int soilMoisture)
     {
         DynamicJsonDocument doc(256);
 
         Firebase.get(fbdo, F("/Automation"));
         deserializeJson(doc, fbdo.jsonString());
 
-        if (doc.containsKey("Moisture") && !running)
+        if (doc.containsKey("Moisture") && !isRunning)
         {
-            JsonObject kelembaban = doc["Moisture"];
-            bool isEnable = kelembaban["Enable"];
-            const char *getOprs = kelembaban["Operator"];
-            int value = kelembaban["Value"];
-            soilMoistureThreshold = kelembaban.containsKey("Threshold") ? kelembaban["Threshold"] : 60;
-            
-            if (isEnable)
+            JsonObject jsonData = doc["Moisture"];
+
+            bool isEnabled = jsonData["Enable"];
+            const char *getOprs = jsonData["Operator"];
+            int soilMoistureMinimum = jsonData["Value"];
+
+            soilMoistureMaximum = jsonData.containsKey("Threshold") ? jsonData["Threshold"] : DEFAULT_SOIL_MOISTURE_TRESHOLD;
+
+            if (isEnabled)
             {
                 if (*getOprs == '<')
                 {
-                    return lembab.getKelembaban() < value;
+                    return soilMoisture < soilMoistureMinimum;
                 }
                 else if (*getOprs == '=')
                 {
-                    return lembab.getKelembaban() == value;
+                    return soilMoisture == soilMoistureMinimum;
                 }
                 else if (*getOprs == '>')
                 {
-                    return lembab.getKelembaban() > value;
+                    return soilMoisture > soilMoistureMinimum;
                 }
             }
         }
-        // else if (doc.containsKey("Temperature") && !running)
-        // {
-        //     JsonObject Suhu = doc["Temperature"];
-        //     bool isEnable = Suhu["Enable"];
-        //     const char *getOprs = Suhu["Operator"];
-        //     int value = Suhu["Value"];
-        //     soilMoistureThreshold = Suhu.containsKey("Threshold") ? Suhu["Threshold"] : 30;
-
-        //     if (isEnable)
-        //     {
-        //         if (*getOprs == '<')
-        //         {
-        //             return suhuTanah < value;
-        //         }
-        //         else if (*getOprs == '=')
-        //         {
-        //             return suhuTanah == value;
-        //         }
-        //         else if (*getOprs == '>')
-        //         {
-        //             return suhuTanah > value;
-        //         }
-        //     }
-        // }
-
         return false;
     }
 };

@@ -1,5 +1,12 @@
 {
     "files.associations": {
-        "array": "cpp"
+        "*.html": "html",
+        "*.js": "javascript",
+        "*.css": "css",
+        "array": "cpp",
+        "*.tcc": "cpp",
+        "istream": "cpp",
+        "ostream": "cpp",
+        "typeinfo": "cpp"
     }
 }

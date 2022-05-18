@@ -5,6 +5,19 @@
 
 #include "GetFile.h"
 
+// Uncomment if you want to print wifi cridentials
+// #define PRINT_CREDETIALS
+
+#define CREDENTIALS_JSON_SIZE (90)
+
+#ifdef PRINT_CREDETIALS
+#define Print(x) Serial.print(x);
+#define Println(x) Serial.println(x);
+#else
+#define Print(x) Serial.print(x);
+#define Println(x) Serial.println(x);
+#endif
+
 class WifiConnection
 {
     const char *ssid;
@@ -21,14 +34,14 @@ class WifiConnection
         if (fileConfig.jsonIsOk() && !doc.isNull())
         {
             ssid = doc["ssid"];
-            Serial.print("SSID => :");
-            Serial.println(ssid);
+            Print("SSID => :");
+            Println(ssid);
             isPasswordLess = true;
             if (doc.containsKey("password"))
             {
                 password = doc["password"];
-                Serial.print("PASSWORD : ");
-                Serial.println(password);
+                Print("PASSWORD : ");
+                Println(password);
                 isPasswordLess = false;
             }
             return true;
@@ -37,25 +50,19 @@ class WifiConnection
     }
 
 public:
-    WifiConnection() : doc(90)
+    WifiConnection() : doc(CREDENTIALS_JSON_SIZE)
     {
     }
 
-    bool getClientConfig()
+    bool getConfig()
     {
-        return getAuthData(90, fileConfig.WifiClientConfig);
+        return getAuthData(CREDENTIALS_JSON_SIZE, fileConfig.WifiClientConfig);
     }
 
     bool wifiConnect()
     {
-        if (isPasswordLess)
-        {
-            WiFi.begin(ssid);
-        }
-        else
-        {
-            WiFi.begin(ssid, password);
-        }
+        isPasswordLess ? WiFi.begin(ssid) : WiFi.begin(ssid, password);
+
         return (WiFi.waitForConnectResult() == WL_CONNECTED);
     }
 };

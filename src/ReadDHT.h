@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include "DHT.h"
 
-class ReadDHT
+class DHTSensor
 {
     DHT dht;
 
@@ -12,7 +12,7 @@ class ReadDHT
     int lastTemp;
 
 public:
-    ReadDHT(int dhtPin, int dhtType) : dht(dhtPin, dhtType)
+    DHTSensor(int dhtPin, int dhtType) : dht(dhtPin, dhtType)
     {
         dht.begin();
 
@@ -20,7 +20,7 @@ public:
         lastTemp = 0;
     }
 
-    int KelembabanUdara()
+    int Humidity()
     {
         float humidity = dht.readHumidity();
         if (!isnan(humidity))
@@ -34,7 +34,7 @@ public:
         }
     }
 
-    int SuhuUdara()
+    int Temperature()
     {
         float temp = dht.readTemperature();
         if (!isnan(temp))
